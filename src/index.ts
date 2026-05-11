@@ -75,7 +75,7 @@ async function buildLookupMaps(workspaceId: string, entries: TimeEntry[]) {
   for (const e of entries) {
     if (e.projectId) projectIds.add(e.projectId);
     if (e.taskId) taskIds.add(e.taskId);
-    for (const t of e.tagIds) tagIds.add(t);
+    for (const t of e.tagIds ?? []) tagIds.add(t);
   }
   const [projects, tags] = await Promise.all([
     projectIds.size ? client.listProjects(workspaceId, {}) : Promise.resolve<Project[]>([]),
@@ -414,7 +414,7 @@ server.tool(
         }
         input.tagIds = tagResult.ids;
       } else {
-        input.tagIds = existing.tagIds;
+        input.tagIds = existing.tagIds ?? [];
       }
       input.billable = billable !== undefined ? billable : existing.billable;
       const updated = await client.updateTimeEntry(workspaceId, entryId, input as unknown as Parameters<typeof client.updateTimeEntry>[2]);

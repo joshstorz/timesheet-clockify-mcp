@@ -41,7 +41,7 @@ export function summarizeEntry(
 ): string {
   const project = entry.projectId ? projectsById.get(entry.projectId)?.name ?? entry.projectId : "(no project)";
   const task = entry.taskId ? tasksById.get(entry.taskId)?.name ?? entry.taskId : null;
-  const tags = entry.tagIds.map((id) => tagsById.get(id)?.name ?? id).filter(Boolean);
+  const tags = (entry.tagIds ?? []).map((id) => tagsById.get(id)?.name ?? id).filter(Boolean);
   const desc = entry.description || "(no description)";
 
   const start = entry.timeInterval.start;
