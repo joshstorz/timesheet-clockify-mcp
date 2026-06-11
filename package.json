@@ -1,6 +1,6 @@
 {
   "name": "@joshstorz/timesheet-clockify-mcp",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Personal timesheet MCP server for Clockify. Start/stop timers, log past entries, and pull billing-ready reports through any MCP-compatible AI assistant.",
   "type": "module",
   "bin": {
