@@ -35,6 +35,10 @@ if (!TOKEN) {
 
 const DEFAULT_PROJECT = process.env.CLOCKIFY_DEFAULT_PROJECT;
 const WORKSPACE_OVERRIDE = process.env.CLOCKIFY_WORKSPACE_ID;
+const DEFAULT_BILLABLE: boolean | undefined =
+  process.env.CLOCKIFY_DEFAULT_BILLABLE === undefined
+    ? undefined
+    : ["true", "1", "yes"].includes(process.env.CLOCKIFY_DEFAULT_BILLABLE.toLowerCase());
 
 const client = new ClockifyClient(TOKEN);
 
@@ -58,9 +62,9 @@ function errorResult(err: unknown) {
   return { content: [{ type: "text" as const, text: message }], isError: true };
 }
 
-async function resolveProjectOrError(workspaceId: string, nameOrId: string): Promise<{ id: string } | { error: string }> {
+async function resolveProjectOrError(workspaceId: string, nameOrId: string): Promise<{ id: string; billable: boolean } | { error: string }> {
   const result = await resolveProject(client, workspaceId, nameOrId);
-  if (result.match) return { id: result.match.id };
+  if (result.match) return { id: result.match.id, billable: result.match.billable };
   if (result.candidates.length > 1) {
     const list = result.candidates.map((c) => `  • ${c.name} (id: ${c.id})`).join("\n");
     return { error: `Multiple projects match "${nameOrId}":\n${list}\nPass the exact name or the id.` };
@@ -249,7 +253,7 @@ server.tool(
     project: z.string().optional().describe("Project name or id"),
     task: z.string().optional().describe("Task name or id (requires project)"),
     tags: z.array(z.string()).optional().describe("Tag names or ids"),
-    billable: z.boolean().optional(),
+    billable: z.boolean().optional().describe("Whether the time is billable. If omitted, falls back to CLOCKIFY_DEFAULT_BILLABLE, then the project's billable setting, then false."),
   },
   async ({ description, project, task, tags, billable }) => {
     try {
@@ -258,11 +262,13 @@ server.tool(
         start: isoNow(),
         description: description ?? "",
       };
+      let projectBillable: boolean | undefined;
       const projectInput = project ?? DEFAULT_PROJECT;
       if (projectInput) {
         const resolved = await resolveProjectOrError(workspaceId, projectInput);
         if ("error" in resolved) return textResult(resolved.error);
         input.projectId = resolved.id;
+        projectBillable = resolved.billable;
         if (task) {
           const taskResult = await resolveTask(client, workspaceId, resolved.id, task);
           if (!taskResult.match) {
@@ -290,7 +296,8 @@ server.tool(
         }
         input.tagIds = tagResult.ids;
       }
-      if (billable !== undefined) input.billable = billable;
+      const effectiveBillable = billable ?? DEFAULT_BILLABLE ?? projectBillable;
+      if (effectiveBillable !== undefined) input.billable = effectiveBillable;
       const entry = await client.createTimeEntry(workspaceId, input as unknown as Parameters<typeof client.createTimeEntry>[1]);
       const maps = await buildLookupMaps(workspaceId, [entry]);
       return textResult(`Started timer.\n${summarizeEntry(entry, maps.projectsById, maps.tasksById, maps.tagsById)}\nEntry id: ${entry.id}`);
@@ -330,7 +337,7 @@ server.tool(
     project: z.string().optional(),
     task: z.string().optional(),
     tags: z.array(z.string()).optional(),
-    billable: z.boolean().optional(),
+    billable: z.boolean().optional().describe("Whether the time is billable. If omitted, falls back to CLOCKIFY_DEFAULT_BILLABLE, then the project's billable setting, then false."),
   },
   async ({ start, end, description, project, task, tags, billable }) => {
     try {
@@ -342,11 +349,13 @@ server.tool(
         end: endIso,
         description: description ?? "",
       };
+      let projectBillable: boolean | undefined;
       const projectInput = project ?? DEFAULT_PROJECT;
       if (projectInput) {
         const resolved = await resolveProjectOrError(workspaceId, projectInput);
         if ("error" in resolved) return textResult(resolved.error);
         input.projectId = resolved.id;
+        projectBillable = resolved.billable;
         if (task) {
           const taskResult = await resolveTask(client, workspaceId, resolved.id, task);
           if (!taskResult.match) return textResult(`No task found matching "${task}".`);
@@ -360,7 +369,8 @@ server.tool(
         }
         input.tagIds = tagResult.ids;
       }
-      if (billable !== undefined) input.billable = billable;
+      const effectiveBillable = billable ?? DEFAULT_BILLABLE ?? projectBillable;
+      if (effectiveBillable !== undefined) input.billable = effectiveBillable;
       const entry = await client.createTimeEntry(workspaceId, input as unknown as Parameters<typeof client.createTimeEntry>[1]);
       const maps = await buildLookupMaps(workspaceId, [entry]);
       return textResult(`Logged.\n${summarizeEntry(entry, maps.projectsById, maps.tasksById, maps.tagsById)}\nEntry id: ${entry.id}`);

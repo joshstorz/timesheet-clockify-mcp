@@ -33,6 +33,11 @@ export function durationBetween(startIso: string, endIso: string): number {
   return (new Date(endIso).getTime() - new Date(startIso).getTime()) / 1000;
 }
 
+// "2026-06-11T09:00:00Z" -> "2026-06-11 09:00"
+function shortStamp(iso: string): string {
+  return iso.slice(0, 16).replace("T", " ");
+}
+
 export function summarizeEntry(
   entry: TimeEntry,
   projectsById: Map<string, Project> = new Map(),
@@ -51,9 +56,11 @@ export function summarizeEntry(
     const seconds = entry.timeInterval.duration
       ? parseDuration(entry.timeInterval.duration)
       : durationBetween(start, end);
-    durationLabel = formatDuration(seconds);
+    const sameDay = start.slice(0, 10) === end.slice(0, 10);
+    const endLabel = sameDay ? end.slice(11, 16) : shortStamp(end);
+    durationLabel = `${shortStamp(start)} → ${endLabel} UTC (${formatDuration(seconds)})`;
   } else {
-    durationLabel = `running (since ${start})`;
+    durationLabel = `running since ${shortStamp(start)} UTC`;
   }
 
   const billable = entry.billable ? " [billable]" : "";

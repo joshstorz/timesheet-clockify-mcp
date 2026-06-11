@@ -31,6 +31,17 @@ Get your API token at **clockify.me → profile (top right) → Profile settings
 | `CLOCKIFY_API_TOKEN` | Required. Your personal Clockify API key. |
 | `CLOCKIFY_DEFAULT_PROJECT` | Name or id of a project to use when `start-timer` is called without a `project` argument. |
 | `CLOCKIFY_WORKSPACE_ID` | Override the workspace. Defaults to your active workspace. Only needed if you belong to multiple workspaces and want to pin a non-default one. |
+| `CLOCKIFY_DEFAULT_BILLABLE` | Set to `true` (or `false`) to control whether new entries are billable when the `billable` argument is omitted. Overrides the project's billable setting. |
+
+## Billable behavior
+
+When `start-timer` or `log-past-entry` is called without an explicit `billable` argument, the value is resolved in this order:
+
+1. `CLOCKIFY_DEFAULT_BILLABLE` env var, if set
+2. The project's own billable setting, if a project was given
+3. Clockify's API default (**not billable**)
+
+If you bill for everything, set `CLOCKIFY_DEFAULT_BILLABLE=true` and you can never silently lose billable hours to a forgotten flag.
 
 ## Tools
 
@@ -46,7 +57,7 @@ Get your API token at **clockify.me → profile (top right) → Profile settings
 - **delete-entry** — Delete an entry by id.
 
 ### Lookups
-- **list-entries** — Recent entries. Defaults to today. Pass `start`/`end` for a custom range, or `inProgress: true` to only see the running timer.
+- **list-entries** — Recent entries with start/end timestamps. Defaults to today. Pass `start`/`end` for a custom range, or `inProgress: true` to only see the running timer.
 - **list-projects** — Projects in the workspace. Optional name filter.
 - **list-tasks** — Tasks inside a project (Clockify lets projects have sub-tasks).
 - **list-tags** — Tags available in the workspace.
