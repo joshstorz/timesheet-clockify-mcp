@@ -1,6 +1,6 @@
 {
   "name": "timesheet-clockify-mcp",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Personal timesheet MCP server for Clockify. Start/stop timers, log past entries, and pull billing-ready reports through any MCP-compatible AI assistant.",
   "type": "module",
   "bin": {
@@ -24,7 +24,7 @@
     "timesheet",
     "billing"
   ],
-  "author": "Josh Storz",
+  "author": "Josh Storz (https://github.com/joshstorz)",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -33,7 +33,7 @@
   "bugs": {
     "url": "https://github.com/joshstorz/timesheet-clockify-mcp/issues"
   },
-  "homepage": "https://github.com/joshstorz/timesheet-clockify-mcp#readme",
+  "homepage": "https://github.com/joshstorz",
   "engines": {
     "node": ">=18.0.0"
   },
