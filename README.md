@@ -13,7 +13,7 @@ This is a **personal time-logging** tool, not an admin/HR tool. It focuses on th
   "mcpServers": {
     "timesheet": {
       "command": "npx",
-      "args": ["-y", "@joshstorz/timesheet-clockify-mcp"],
+      "args": ["-y", "timesheet-clockify-mcp"],
       "env": {
         "CLOCKIFY_API_TOKEN": "your-clockify-api-key"
       }
