@@ -1,4 +1,4 @@
-import { ClockifyClient, Project, Task, Tag } from "./clockify.js";
+import { ClockifyClient, ClockifyError, Project, Task, Tag } from "./clockify.js";
 
 const ID_RE = /^[a-f0-9]{24}$/i;
 
@@ -9,6 +9,8 @@ export function looksLikeId(value: string): boolean {
 export interface ResolveResult<T> {
   match: T | null;
   candidates: T[];
+  /** Set when the lookup could not be completed, rather than simply finding nothing. */
+  error?: string;
 }
 
 export async function resolveProject(
@@ -16,10 +18,19 @@ export async function resolveProject(
   workspaceId: string,
   nameOrId: string
 ): Promise<ResolveResult<Project>> {
+  // An id is fetched directly. Scanning the project list instead would miss
+  // anything past the first page in workspaces with hundreds of projects.
   if (looksLikeId(nameOrId)) {
-    const projects = await client.listProjects(workspaceId, {});
-    const match = projects.find((p) => p.id === nameOrId) ?? null;
-    return { match, candidates: match ? [match] : [] };
+    try {
+      const project = await client.getProject(workspaceId, nameOrId);
+      return { match: project, candidates: [project] };
+    } catch (err) {
+      // A bad id comes back as 400 ("doesn't belong to workspace"), not 404.
+      if (err instanceof ClockifyError && (err.status === 400 || err.status === 404)) {
+        return { match: null, candidates: [] };
+      }
+      throw err;
+    }
   }
   const projects = await client.listProjects(workspaceId, { name: nameOrId });
   return pickByName(projects, nameOrId);
@@ -31,10 +42,40 @@ export async function resolveTask(
   projectId: string,
   nameOrId: string
 ): Promise<ResolveResult<Task>> {
-  const tasks = await client.listTasks(workspaceId, projectId, {});
   if (looksLikeId(nameOrId)) {
-    const match = tasks.find((t) => t.id === nameOrId) ?? null;
-    return { match, candidates: match ? [match] : [] };
+    try {
+      const task = await client.getTask(workspaceId, projectId, nameOrId);
+      return { match: task, candidates: [task] };
+    } catch (err) {
+      if (err instanceof ClockifyError && (err.status === 400 || err.status === 404)) {
+        return { match: null, candidates: [] };
+      }
+      // Some tokens are barred from reading tasks. Trust the id and let the
+      // write itself be the thing that fails if the id is wrong.
+      if (err instanceof ClockifyError && (err.status === 401 || err.status === 403)) {
+        return {
+          match: { id: nameOrId, name: nameOrId, projectId, status: "UNKNOWN" },
+          candidates: [],
+        };
+      }
+      throw err;
+    }
+  }
+
+  let tasks: Task[];
+  try {
+    tasks = await client.listTasks(workspaceId, projectId, {});
+  } catch (err) {
+    if (err instanceof ClockifyError && (err.status === 401 || err.status === 403)) {
+      return {
+        match: null,
+        candidates: [],
+        error:
+          "This Clockify token is not allowed to browse tasks by name. " +
+          "Pass the task id instead — ids work fine.",
+      };
+    }
+    throw err;
   }
   return pickByName(tasks, nameOrId);
 }

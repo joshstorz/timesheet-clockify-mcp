@@ -1,5 +1,6 @@
 const API_BASE = "https://api.clockify.me/api/v1";
 const REPORTS_BASE = "https://reports.api.clockify.me/v1";
+const MAX_PAGES = 50;
 
 export class ClockifyError extends Error {
   constructor(message: string, public status?: number, public body?: unknown) {
@@ -134,6 +135,27 @@ export class ClockifyClient {
     return JSON.parse(text) as T;
   }
 
+  /**
+   * Clockify caps every list endpoint at one page. Walk pages until a short
+   * batch comes back so workspaces with hundreds of projects resolve fully.
+   */
+  private async requestAllPages<T>(
+    baseUrl: string,
+    qs: URLSearchParams,
+    pageSize = 200
+  ): Promise<T[]> {
+    const all: T[] = [];
+    qs.set("page-size", String(pageSize));
+    for (let page = 1; page <= MAX_PAGES; page++) {
+      qs.set("page", String(page));
+      const batch = await this.request<T[]>("GET", `${baseUrl}?${qs.toString()}`);
+      if (!batch?.length) break;
+      all.push(...batch);
+      if (batch.length < pageSize) break;
+    }
+    return all;
+  }
+
   getUser(): Promise<User> {
     return this.request<User>("GET", `${API_BASE}/user`);
   }
@@ -217,10 +239,17 @@ export class ClockifyClient {
     const qs = new URLSearchParams();
     if (params.name) qs.set("name", params.name);
     if (params.archived !== undefined) qs.set("archived", String(params.archived));
-    qs.set("page-size", String(params.pageSize ?? 200));
-    return this.request<Project[]>(
+    return this.requestAllPages<Project>(
+      `${API_BASE}/workspaces/${workspaceId}/projects`,
+      qs,
+      params.pageSize ?? 200
+    );
+  }
+
+  getProject(workspaceId: string, projectId: string): Promise<Project> {
+    return this.request<Project>(
       "GET",
-      `${API_BASE}/workspaces/${workspaceId}/projects?${qs.toString()}`
+      `${API_BASE}/workspaces/${workspaceId}/projects/${projectId}`
     );
   }
 
@@ -231,10 +260,17 @@ export class ClockifyClient {
   ): Promise<Task[]> {
     const qs = new URLSearchParams();
     if (params.name) qs.set("name", params.name);
-    qs.set("page-size", String(params.pageSize ?? 200));
-    return this.request<Task[]>(
+    return this.requestAllPages<Task>(
+      `${API_BASE}/workspaces/${workspaceId}/projects/${projectId}/tasks`,
+      qs,
+      params.pageSize ?? 200
+    );
+  }
+
+  getTask(workspaceId: string, projectId: string, taskId: string): Promise<Task> {
+    return this.request<Task>(
       "GET",
-      `${API_BASE}/workspaces/${workspaceId}/projects/${projectId}/tasks?${qs.toString()}`
+      `${API_BASE}/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}`
     );
   }
 
@@ -245,10 +281,9 @@ export class ClockifyClient {
     const qs = new URLSearchParams();
     if (params.name) qs.set("name", params.name);
     if (params.archived !== undefined) qs.set("archived", String(params.archived));
-    qs.set("page-size", "200");
-    return this.request<Tag[]>(
-      "GET",
-      `${API_BASE}/workspaces/${workspaceId}/tags?${qs.toString()}`
+    return this.requestAllPages<Tag>(
+      `${API_BASE}/workspaces/${workspaceId}/tags`,
+      qs
     );
   }
 

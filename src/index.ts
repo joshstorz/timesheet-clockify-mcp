@@ -93,9 +93,7 @@ async function buildLookupMaps(workspaceId: string, entries: TimeEntry[]) {
       const e = entries.find((e) => e.taskId === tid && e.projectId);
       if (!e?.projectId) return;
       try {
-        const tasks = await client.listTasks(workspaceId, e.projectId, {});
-        const match = tasks.find((t) => t.id === tid);
-        if (match) tasksById.set(tid, match);
+        tasksById.set(tid, await client.getTask(workspaceId, e.projectId, tid));
       } catch {}
     })
   );
@@ -163,7 +161,18 @@ server.tool(
       const { workspaceId } = await getContext();
       const resolved = await resolveProjectOrError(workspaceId, project);
       if ("error" in resolved) return textResult(resolved.error);
-      const tasks = await client.listTasks(workspaceId, resolved.id, { name });
+      let tasks: Task[];
+      try {
+        tasks = await client.listTasks(workspaceId, resolved.id, { name });
+      } catch (err) {
+        if (err instanceof ClockifyError && (err.status === 401 || err.status === 403)) {
+          return textResult(
+            "This Clockify token is not allowed to list tasks. Task ids still work everywhere else — " +
+              "grab one from an existing entry, or from the task url in the Clockify web app."
+          );
+        }
+        throw err;
+      }
       if (!tasks.length) return textResult("No tasks found for that project.");
       return textResult(tasks.map((t) => `${t.name} — id: ${t.id} (${t.status})`).join("\n"));
     } catch (err) {
@@ -272,6 +281,7 @@ server.tool(
         if (task) {
           const taskResult = await resolveTask(client, workspaceId, resolved.id, task);
           if (!taskResult.match) {
+            if (taskResult.error) return textResult(taskResult.error);
             if (taskResult.candidates.length > 1) {
               const list = taskResult.candidates.map((t) => `  • ${t.name} (id: ${t.id})`).join("\n");
               return textResult(`Multiple tasks match "${task}":\n${list}`);
@@ -358,7 +368,7 @@ server.tool(
         projectBillable = resolved.billable;
         if (task) {
           const taskResult = await resolveTask(client, workspaceId, resolved.id, task);
-          if (!taskResult.match) return textResult(`No task found matching "${task}".`);
+          if (!taskResult.match) return textResult(taskResult.error ?? `No task found matching "${task}".`);
           input.taskId = taskResult.match.id;
         }
       }
@@ -412,7 +422,7 @@ server.tool(
       if (projectId) input.projectId = projectId;
       if (task !== undefined && projectId) {
         const taskResult = await resolveTask(client, workspaceId, projectId, task);
-        if (!taskResult.match) return textResult(`No task found matching "${task}".`);
+        if (!taskResult.match) return textResult(taskResult.error ?? `No task found matching "${task}".`);
         input.taskId = taskResult.match.id;
       } else if (existing.taskId) {
         input.taskId = existing.taskId;
