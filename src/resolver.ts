@@ -1,4 +1,4 @@
-import { ClockifyClient, ClockifyError, Project, Task, Tag } from "./clockify.js";
+import { ClockifyClient, ClockifyError, Project, Tag } from "./clockify.js";
 
 const ID_RE = /^[a-f0-9]{24}$/i;
 
@@ -36,50 +36,6 @@ export async function resolveProject(
   return pickByName(projects, nameOrId);
 }
 
-export async function resolveTask(
-  client: ClockifyClient,
-  workspaceId: string,
-  projectId: string,
-  nameOrId: string
-): Promise<ResolveResult<Task>> {
-  if (looksLikeId(nameOrId)) {
-    try {
-      const task = await client.getTask(workspaceId, projectId, nameOrId);
-      return { match: task, candidates: [task] };
-    } catch (err) {
-      if (err instanceof ClockifyError && (err.status === 400 || err.status === 404)) {
-        return { match: null, candidates: [] };
-      }
-      // Some tokens are barred from reading tasks. Trust the id and let the
-      // write itself be the thing that fails if the id is wrong.
-      if (err instanceof ClockifyError && (err.status === 401 || err.status === 403)) {
-        return {
-          match: { id: nameOrId, name: nameOrId, projectId, status: "UNKNOWN" },
-          candidates: [],
-        };
-      }
-      throw err;
-    }
-  }
-
-  let tasks: Task[];
-  try {
-    tasks = await client.listTasks(workspaceId, projectId, {});
-  } catch (err) {
-    if (err instanceof ClockifyError && (err.status === 401 || err.status === 403)) {
-      return {
-        match: null,
-        candidates: [],
-        error:
-          "This Clockify token is not allowed to browse tasks by name. " +
-          "Pass the task id instead — ids work fine.",
-      };
-    }
-    throw err;
-  }
-  return pickByName(tasks, nameOrId);
-}
-
 export async function resolveTags(
   client: ClockifyClient,
   workspaceId: string,
@@ -104,7 +60,7 @@ export async function resolveTags(
   return { ids, unresolved, ambiguous };
 }
 
-function pickByName<T extends { name: string }>(
+export function pickByName<T extends { name: string }>(
   items: T[],
   query: string
 ): ResolveResult<T> {

@@ -51,11 +51,16 @@ export interface TimeEntry {
   description: string;
   projectId: string | null;
   taskId: string | null;
-  tagIds: string[];
+  tagIds: string[] | null;
   billable: boolean;
   timeInterval: TimeInterval;
   workspaceId: string;
   userId: string;
+  project?: Project | null;
+  task?: Task | null;
+  tags?: Tag[] | null;
+  customFieldValues?: { customFieldId: string; value: unknown }[] | null;
+  type?: "REGULAR" | "BREAK";
 }
 
 export interface CreateEntryInput {
@@ -72,10 +77,12 @@ export interface UpdateEntryInput {
   start?: string;
   end?: string;
   description?: string;
-  projectId?: string;
-  taskId?: string;
+  projectId?: string | null;
+  taskId?: string | null;
   tagIds?: string[];
   billable?: boolean;
+  customFields?: { customFieldId: string; value: unknown }[];
+  type?: "REGULAR" | "BREAK";
 }
 
 export interface SummaryReportInput {
@@ -100,14 +107,14 @@ export interface DetailedReportInput {
 }
 
 export class ClockifyClient {
-  constructor(private apiKey: string) {}
+  constructor(private apiKey: string, private fetcher: typeof fetch = fetch) {}
 
   private async request<T>(
     method: string,
     url: string,
     body?: unknown
   ): Promise<T> {
-    const res = await fetch(url, {
+    const res = await this.fetcher(url, {
       method,
       headers: {
         "X-Api-Key": this.apiKey,
@@ -170,6 +177,7 @@ export class ClockifyClient {
       page?: number;
       pageSize?: number;
       hydrated?: boolean;
+      project?: string;
     } = {}
   ): Promise<TimeEntry[]> {
     const qs = new URLSearchParams();
@@ -179,6 +187,7 @@ export class ClockifyClient {
     if (params.page) qs.set("page", String(params.page));
     if (params.pageSize) qs.set("page-size", String(params.pageSize));
     if (params.hydrated) qs.set("hydrated", "true");
+    if (params.project) qs.set("project", params.project);
     const q = qs.toString();
     return this.request<TimeEntry[]>(
       "GET",
@@ -225,10 +234,10 @@ export class ClockifyClient {
     );
   }
 
-  getTimeEntry(workspaceId: string, entryId: string): Promise<TimeEntry> {
+  getTimeEntry(workspaceId: string, entryId: string, hydrated = false): Promise<TimeEntry> {
     return this.request<TimeEntry>(
       "GET",
-      `${API_BASE}/workspaces/${workspaceId}/time-entries/${entryId}`
+      `${API_BASE}/workspaces/${workspaceId}/time-entries/${entryId}${hydrated ? "?hydrated=true" : ""}`
     );
   }
 

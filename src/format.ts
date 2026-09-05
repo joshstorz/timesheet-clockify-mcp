@@ -42,7 +42,8 @@ export function summarizeEntry(
   entry: TimeEntry,
   projectsById: Map<string, Project> = new Map(),
   tasksById: Map<string, Task> = new Map(),
-  tagsById: Map<string, Tag> = new Map()
+  tagsById: Map<string, Tag> = new Map(),
+  taskLookupErrors: Map<string, string> = new Map()
 ): string {
   const project = entry.projectId ? projectsById.get(entry.projectId)?.name ?? entry.projectId : "(no project)";
   const task = entry.taskId ? tasksById.get(entry.taskId)?.name ?? entry.taskId : null;
@@ -65,7 +66,9 @@ export function summarizeEntry(
 
   const billable = entry.billable ? " [billable]" : "";
   const tagSuffix = tags.length ? ` #${tags.join(" #")}` : "";
-  const taskSuffix = task ? ` › ${task}` : "";
+  const taskSuffix = task
+    ? ` › ${task} [taskId: ${entry.taskId}${taskLookupErrors.has(entry.taskId!) ? `; ${taskLookupErrors.get(entry.taskId!)}` : ""}]`
+    : " [taskId: null; no task assigned]";
 
   return `${durationLabel} — ${project}${taskSuffix} — ${desc}${billable}${tagSuffix}`;
 }
