@@ -1,6 +1,6 @@
 # Handover: task discovery and task-required timer recovery
 
-Updated 2026-09-05. Target release: `timesheet-clockify-mcp` v0.2.3.
+Updated 2026-09-05. Released: `timesheet-clockify-mcp` v0.2.3.
 
 ## Incident status
 
@@ -71,5 +71,17 @@ Verified locally:
   a task-name filter hit, with the existing API key. No billing records changed.
 - The connected account had no running timer during verification.
 
-GitHub CI and npm publication are the remaining release steps. Existing client
-processes still need to reconnect; the fresh-process check does not reload them.
+Release complete:
+
+- Implementation commit: `5061a42` on GitHub `main`.
+- [GitHub CI](https://github.com/joshstorz/timesheet-clockify-mcp/actions/runs/33947384755)
+  passed on Node 18 and 22.
+- Published `timesheet-clockify-mcp@0.2.3`; npm's `latest` tag resolves to 0.2.3.
+- Downloaded the published tarball and verified every compiled file matches the
+  tested local build. Installed that tarball through `npx` and verified its MCP
+  handshake reports v0.2.3 and the new tool arguments, without Clockify API writes.
+
+Existing client processes still need to reconnect; the fresh-process check does
+not reload them. New processes started from the rebuilt local checkout or the
+published v0.2.3 package load the fix immediately. No historical billing records
+were edited or backfilled by this release.
